@@ -1,0 +1,25 @@
+:root {
+	--primary: #2563eb;
+	--success: #16a34a;
+	--danger: #dc2626;
+	--bg: #f8fafc;
+	--card: #ffffff;
+	--text: #1e293b;
+	--text-secondary: #64748b;
+	--border: #e2e8f0;
+}
+
+* {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+}
+
+body {
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+	background: var(--bg);
+	color: var(--text);
+	-webkit-font-smoothing: antialiased;
+	max-width: 100vw;
+	overflow-x: hidden;
+}

@@ -1,0 +1,8 @@
+frontend/
+backend/venv/
+backend/__pycache__/
+backend/data/
+backend/uploads/
+backend/crops/
+.git/
+*.pyc
