@@ -151,6 +151,11 @@ app.add_middleware(
 )
 
 
+@app.get("/")
+def health_check():
+    return {"status": "ok", "service": "WeldCheck API"}
+
+
 @app.post("/login")
 def login(req: LoginRequest):
     if req.username not in WHITELIST_USERS:
