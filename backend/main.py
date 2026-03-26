@@ -134,9 +134,26 @@ def judge_weld(class_name: str, confidence: float) -> str:
     return "PASS" if confidence > 0.5 else "FAIL"
 
 
+def preload_models():
+    """Pre-load all YOLO models at startup for faster inference."""
+    if not MODELS_DIR.exists():
+        return
+    extensions = {'.pt', '.onnx', '.engine', '.torchscript'}
+    for f in MODELS_DIR.iterdir():
+        if f.suffix in extensions:
+            print(f"[Startup] Loading model: {f.name}...")
+            _model_cache[f.name] = YOLO(str(f))
+            # Warm up with a dummy inference
+            import numpy as np
+            dummy = np.zeros((640, 640, 3), dtype=np.uint8)
+            _model_cache[f.name](dummy, verbose=False)
+            print(f"[Startup] Model {f.name} ready.")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    preload_models()
     yield
 
 
