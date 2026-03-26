@@ -135,21 +135,19 @@ def judge_weld(class_name: str, confidence: float) -> str:
 
 
 def preload_models():
-    """Pre-load all YOLO models in background for faster inference."""
+    """Pre-load first available model in background."""
     import threading
-    import numpy as np
 
     def _load():
         if not MODELS_DIR.exists():
             return
         extensions = {'.pt', '.onnx', '.engine', '.torchscript'}
-        for f in MODELS_DIR.iterdir():
+        for f in sorted(MODELS_DIR.iterdir()):
             if f.suffix in extensions:
                 print(f"[Startup] Loading model: {f.name}...")
                 _model_cache[f.name] = YOLO(str(f))
-                dummy = np.zeros((640, 640, 3), dtype=np.uint8)
-                _model_cache[f.name](dummy, verbose=False)
                 print(f"[Startup] Model {f.name} ready.")
+                break  # Only preload first model to save memory
 
     threading.Thread(target=_load, daemon=True).start()
 
