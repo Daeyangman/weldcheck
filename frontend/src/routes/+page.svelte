@@ -4,12 +4,14 @@
 
 	let models: string[] = $state([]);
 	let selectedModel = $state('');
-	let file: File | null = $state(null);
-	let preview = $state('');
+	let files: File[] = $state([]);
+	let previews: string[] = $state([]);
 	let loading = $state(false);
-	let result: any = $state(null);
+	let results: any[] = $state([]);
+	let progress = $state('');
 	let error = $state('');
-	let fileInput: HTMLInputElement;
+	let cameraInput: HTMLInputElement;
+	let galleryInput: HTMLInputElement;
 
 	onMount(async () => {
 		try {
@@ -20,38 +22,52 @@
 		}
 	});
 
-	function handleFile(e: Event) {
+	function handleFiles(e: Event) {
 		const target = e.target as HTMLInputElement;
-		const f = target.files?.[0];
-		if (!f) return;
-		file = f;
-		result = null;
+		const selected = target.files;
+		if (!selected || selected.length === 0) return;
+		const newFiles = Array.from(selected);
+		files = [...files, ...newFiles];
+		results = [];
 		error = '';
-		const reader = new FileReader();
-		reader.onload = () => { preview = reader.result as string; };
-		reader.readAsDataURL(f);
-	}
-
-	async function runInspection() {
-		if (!file || !selectedModel) return;
-		loading = true;
-		error = '';
-		result = null;
-		try {
-			result = await inspect(file, selectedModel);
-		} catch {
-			error = '검사 중 오류가 발생했습니다.';
-		} finally {
-			loading = false;
+		for (const f of newFiles) {
+			const reader = new FileReader();
+			reader.onload = () => { previews = [...previews, reader.result as string]; };
+			reader.readAsDataURL(f);
 		}
 	}
 
-	function reset() {
-		file = null;
-		preview = '';
-		result = null;
+	function removeFile(index: number) {
+		files = files.filter((_, i) => i !== index);
+		previews = previews.filter((_, i) => i !== index);
+	}
+
+	async function runInspection() {
+		if (files.length === 0 || !selectedModel) return;
+		loading = true;
 		error = '';
-		if (fileInput) fileInput.value = '';
+		results = [];
+		for (let i = 0; i < files.length; i++) {
+			progress = `검사 중... (${i + 1}/${files.length})`;
+			try {
+				const res = await inspect(files[i], selectedModel);
+				results = [...results, { filename: files[i].name, preview: previews[i], ...res }];
+			} catch {
+				results = [...results, { filename: files[i].name, preview: previews[i], error: true }];
+			}
+		}
+		progress = '';
+		loading = false;
+	}
+
+	function reset() {
+		files = [];
+		previews = [];
+		results = [];
+		error = '';
+		progress = '';
+		if (cameraInput) cameraInput.value = '';
+		if (galleryInput) galleryInput.value = '';
 	}
 </script>
 
@@ -67,30 +83,46 @@
 		</select>
 	</div>
 
-	<div class="upload-area" onclick={() => fileInput.click()} role="button" tabindex="0" onkeydown={(e) => e.key === 'Enter' && fileInput.click()}>
-		{#if preview}
-			<img src={preview} alt="미리보기" class="preview-img" />
-		{:else}
-			<div class="upload-placeholder">
-				<span class="upload-icon">📷</span>
-				<p>이미지 또는 영상을 선택하세요</p>
-				<p class="hint">탭하여 파일 선택</p>
-			</div>
-		{/if}
+	<div class="upload-buttons">
+		<button class="upload-btn" onclick={() => cameraInput.click()}>
+			<span>📷</span> 카메라 촬영
+		</button>
+		<button class="upload-btn" onclick={() => galleryInput.click()}>
+			<span>🖼</span> 갤러리 선택
+		</button>
 		<input
-			bind:this={fileInput}
+			bind:this={cameraInput}
+			type="file"
+			accept="image/*"
+			capture="environment"
+			onchange={handleFiles}
+			hidden
+		/>
+		<input
+			bind:this={galleryInput}
 			type="file"
 			accept="image/*,video/*"
-			capture="environment"
-			onchange={handleFile}
+			multiple
+			onchange={handleFiles}
 			hidden
 		/>
 	</div>
 
-	{#if file}
+	{#if previews.length > 0}
+		<div class="preview-grid">
+			{#each previews as p, i}
+				<div class="preview-item">
+					<img src={p} alt="미리보기 {i + 1}" />
+					<button class="remove-btn" onclick={() => removeFile(i)}>✕</button>
+				</div>
+			{/each}
+		</div>
+	{/if}
+
+	{#if files.length > 0}
 		<div class="actions">
 			<button class="btn primary" onclick={runInspection} disabled={loading || !selectedModel}>
-				{loading ? '검사 중...' : '검사 시작'}
+				{loading ? progress : `검사 시작 (${files.length}장)`}
 			</button>
 			<button class="btn secondary" onclick={reset} disabled={loading}>초기화</button>
 		</div>
@@ -100,23 +132,30 @@
 		<div class="alert error">{error}</div>
 	{/if}
 
-	{#if result}
+	{#if results.length > 0}
 		<div class="results">
-			<h2>검사 결과</h2>
-			{#if result.detections && result.detections.length > 0}
-				{#each result.detections as det, i}
-					<div class="result-card {det.judgment}">
-						<div class="result-header">
-							<span class="badge {det.judgment}">{det.judgment}</span>
-							<span class="confidence">{(det.confidence * 100).toFixed(1)}%</span>
-						</div>
-						<img src={getImage(det.crop_path)} alt="검출 {i + 1}" class="crop-img" />
-						<p class="label">{det.class_name}</p>
-					</div>
-				{/each}
-			{:else}
-				<div class="alert info">용접 부위가 검출되지 않았습니다.</div>
-			{/if}
+			<h2>검사 결과 ({results.length}건)</h2>
+			{#each results as res, ri}
+				<div class="result-group">
+					<p class="result-filename">{res.filename}</p>
+					{#if res.error}
+						<div class="alert error">검사 실패</div>
+					{:else if res.detections && res.detections.length > 0}
+						{#each res.detections as det, i}
+							<div class="result-card {det.judgment}">
+								<div class="result-header">
+									<span class="badge {det.judgment}">{det.judgment}</span>
+									<span class="confidence">{(det.confidence * 100).toFixed(1)}%</span>
+								</div>
+								<img src={getImage(det.crop_path)} alt="검출 {i + 1}" class="crop-img" />
+								<p class="label">{det.class_name}</p>
+							</div>
+						{/each}
+					{:else}
+						<div class="alert info">용접 부위가 검출되지 않았습니다.</div>
+					{/if}
+				</div>
+			{/each}
 		</div>
 	{/if}
 </section>
@@ -148,36 +187,75 @@
 		font-size: 1rem;
 		background: var(--card);
 	}
-	.upload-area {
-		border: 2px dashed var(--border);
-		border-radius: 0.75rem;
-		padding: 2rem;
-		text-align: center;
-		cursor: pointer;
-		background: var(--card);
-		transition: border-color 0.2s;
+	.upload-buttons {
+		display: flex;
+		gap: 0.75rem;
 	}
-	.upload-area:hover, .upload-area:focus {
-		border-color: var(--primary);
-	}
-	.upload-placeholder {
+	.upload-btn {
+		flex: 1;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
+		gap: 0.375rem;
+		padding: 1.25rem 0.5rem;
+		border: 2px dashed var(--border);
+		border-radius: 0.75rem;
+		background: var(--card);
+		cursor: pointer;
+		font-size: 0.9rem;
+		font-weight: 600;
+		color: var(--text);
+		transition: border-color 0.2s;
+	}
+	.upload-btn:hover {
+		border-color: var(--primary);
+	}
+	.upload-btn span {
+		font-size: 1.75rem;
+	}
+	.preview-grid {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
 		gap: 0.5rem;
 	}
-	.upload-icon {
-		font-size: 2.5rem;
-	}
-	.hint {
-		font-size: 0.8rem;
-		color: var(--text-secondary);
-	}
-	.preview-img {
-		max-width: 100%;
-		max-height: 300px;
+	.preview-item {
+		position: relative;
+		aspect-ratio: 1;
 		border-radius: 0.5rem;
-		object-fit: contain;
+		overflow: hidden;
+	}
+	.preview-item img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+	.remove-btn {
+		position: absolute;
+		top: 4px;
+		right: 4px;
+		width: 24px;
+		height: 24px;
+		border-radius: 50%;
+		border: none;
+		background: rgba(0,0,0,0.6);
+		color: white;
+		font-size: 0.75rem;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	.result-group {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+	.result-filename {
+		font-weight: 600;
+		font-size: 0.85rem;
+		color: var(--text-secondary);
+		padding-top: 0.5rem;
+		border-top: 1px solid var(--border);
 	}
 	.actions {
 		display: flex;
