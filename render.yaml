@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: weldcheck-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PORT
+        value: "8000"
+    disk:
+      name: weldcheck-data
+      mountPath: /app/backend/data
+      sizeGB: 1
