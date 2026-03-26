@@ -27,11 +27,11 @@ SECRET_KEY = "weldcheck-secret-key-2024"
 ALGORITHM = "HS256"
 
 WHITELIST_USERS = {
-    "이상호": "a이상호",
-    "윤재욱": "a윤재욱",
-    "이한종": "a이한종",
-    "하승구": "a하승구",
-    "조재흥": "a조재흥",
+    "이상호": "adltkdgh",
+    "윤재욱": "adbsrowkr",
+    "이한종": "agkswhd",
+    "하승구": "agktmdtn",
+    "조재흥": "awoflgmd",
 }
 
 
