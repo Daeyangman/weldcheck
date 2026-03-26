@@ -59,6 +59,10 @@ export async function inspect(file: File, model: string): Promise<any> {
 		window.location.href = '/login';
 		throw new Error('인증이 만료되었습니다');
 	}
+	if (!res.ok) {
+		const err = await res.json().catch(() => ({ detail: `서버 오류 (${res.status})` }));
+		throw new Error(err.detail || `검사 실패 (${res.status})`);
+	}
 	return res.json();
 }
 

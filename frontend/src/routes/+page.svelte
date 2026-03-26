@@ -52,8 +52,8 @@
 			try {
 				const res = await inspect(files[i], selectedModel);
 				results = [...results, { filename: files[i].name, preview: previews[i], ...res }];
-			} catch {
-				results = [...results, { filename: files[i].name, preview: previews[i], error: true }];
+			} catch (err: any) {
+				results = [...results, { filename: files[i].name, preview: previews[i], error: true, errorMsg: err.message }];
 			}
 		}
 		progress = '';
@@ -139,7 +139,7 @@
 				<div class="result-group">
 					<p class="result-filename">{res.filename}</p>
 					{#if res.error}
-						<div class="alert error">검사 실패</div>
+						<div class="alert error">{res.errorMsg || '검사 실패'}</div>
 					{:else if res.detections && res.detections.length > 0}
 						{#each res.detections as det, i}
 							<div class="result-card {det.judgment}">
